@@ -1,0 +1,22 @@
+{
+  "name": "nina",
+  "version": "0.0.0",
+  "authors": [
+    "Jake Song <jksong3@gmail.com>"
+  ],
+  "description": "media manager",
+  "license": "MIT",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "public/lib",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "angular": "~1.3.8",
+    "bootstrap": "~3.3.1"
+  }
+}

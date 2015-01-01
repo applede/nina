@@ -1,0 +1,4 @@
+*.swp
+*.lock
+node_modules/
+public/lib/

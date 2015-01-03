@@ -4,18 +4,40 @@ module.exports = function(grunt) {
   grunt.initConfig({
     pkg: grunt.file.readJSON('package.json'),
     watch: {
-      options: {
-        livereload: true,
+      public_files: {
+        files: ['public/*.css', 'public/*.js'],
+        options: {
+          livereload: true,
+        },
       },
       slim: {
-        files: ['views/*.slim', 'public/*.css'],
-      },
+        files: 'views/*.slim',
+        tasks: ['slim'],
+        options: {
+          livereload: true,
+        }
+      }
     },
+    slim: {
+      dist: {
+        files: [{
+          expand: true,
+          cwd: 'views',
+          src: ['*.slim'],
+          dest: 'public/views',
+          ext: '.html'
+        }],
+        options: {
+          pretty: true
+        },
+      }
+    }
   });
 
   grunt.loadNpmTasks('grunt-contrib-watch');
+  grunt.loadNpmTasks('grunt-slim');
 
   // Default task(s).
-  grunt.registerTask('default', ['watch']);
+  grunt.registerTask('default', ['watch', 'slim']);
 
 };

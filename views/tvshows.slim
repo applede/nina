@@ -1,1 +1,7 @@
-h1 TV Shows
+.container-fluid
+  h1 TV Shows
+  form.form-horizontal
+    div.form-group
+      div.col-sm-4
+        input.form-control ng-model="search_term" placeholder="eg. big bang theory"
+      button.btn.btn-primary ng-click="search()" Search

@@ -2,6 +2,18 @@
   h1 Transfers
   div
     table.table
+      thead
+        tr
+          th Id
+          th Name
+          th Status
       tbody
-        
-  
+        tr ng-repeat="trans in transfers"
+          td
+            | {{trans.id}}
+          td
+            | {{trans.name}}
+          td
+            | {{trans.status}}
+    pre
+      | {{transfers | json}}

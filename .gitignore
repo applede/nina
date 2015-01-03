@@ -2,3 +2,4 @@
 *.lock
 node_modules/
 public/lib/
+public/views/

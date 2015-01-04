@@ -16,7 +16,7 @@ module.exports = function(grunt) {
         options: {
           livereload: true,
         }
-      }
+      },
     },
     slim: {
       dist: {
@@ -28,7 +28,8 @@ module.exports = function(grunt) {
           ext: '.html'
         }],
         options: {
-          pretty: true
+          pretty: true,
+          option: "attr_list_delims={'('=>')'}"
         },
       }
     }

@@ -5,3 +5,7 @@ body {
 .hspace {
 	padding: 0px 10px;
 }
+
+.angucomplete-holder {
+	display: inline;
+}

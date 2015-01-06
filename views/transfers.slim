@@ -8,27 +8,10 @@
         th Status
         th Action
       tbody
-        tr ng-repeat-start="trans in transfers"
+        tr ng-repeat="trans in transfers" id="trans_{{trans.id}}"
           td {{trans.id}}
           td {{trans.name}}
           td {{trans.status}}
           td
-            button.btn.btn-default ng-click="toggle_hide(trans.id)" Add Rule
-        tr ng-hide="hide(trans.id)" ng-repeat-end=""
-          td
-          td
-            div.form-inline
-              div.form-group
-                label.hspace If it matches
-                input.form-control placeholder=".+"
-                span.hspace
-                label.hspace recognize it as 
-                select.form-control
-                  option TV Show
-                  option Movie
-                  option Porn
-                span.hspace
-                label.hspace Show Name
-                input.form-control placeholder="TV Show name"
-          td
-          td
+            button.btn.btn-default ng-click="show_rule(trans.id)" Add Rule
+        / tr show-edit='' ng-repeat-end='' id="rule_{{trans.id}}"

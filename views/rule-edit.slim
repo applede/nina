@@ -1,0 +1,16 @@
+tr
+  td colspan=3
+    div.form-inline
+      div.form-group
+        label.hspace If it matches
+        input.form-control placeholder=".+" ng-model="pattern"
+        span.hspace
+        label.hspace recognize it as 
+        select.form-control ng-model="kind"
+          option TV Show
+          option Movie
+          option Porn
+        span.hspace
+        span(angucomplete-alt id="tvshow_name_{{trans.id}}" placeholder="TV Show name" selected-object="selected_tvshow" local-data="tvshows" search-fields='name' title-field='name' minlength=1  input-class="form-control form-control-small" match-class="hightlight" ng-model="name")
+  td
+    button.btn.btn-primary ng-click="test()" Test

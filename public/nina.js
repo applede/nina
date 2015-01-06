@@ -1,5 +1,6 @@
 var ninaApp = angular.module('nina', [
   'ngRoute',
+  'angucomplete-alt',
   'ninaControllers'
 ]);
 
@@ -27,14 +28,52 @@ ninaApp.config(['$routeProvider',
       });
   }]);
 
+// ninaApp.directive('showEdit', function($compile) {
+//   return {
+//     scope: true,
+//     link: function(scope, element, attrs) {
+//       var el;
+//       attrs.$observe('template', function(tpl) {
+//         if (angular.isDefined(tpl)) {
+//           console.log(tpl);
+//           el = $compile(tpl)(scope);
+//           element.html("");
+//           element.append(el);
+//         }
+//       });
+//     }
+//   };
+// });
+
+ninaApp.directive('showEdit', ['$http', '$compile', function($http, $compile) {
+  function link(scope, element, attrs) {
+    scope.$watch(attrs.show, function(value) {
+      if (value) {
+        $http.get('views/rule-edit.html').then(function(data) {
+          el = $compile(data)(scope);
+          element.html("");
+          element.append(el);
+        })
+      }
+    });
+  }
+
+  return {
+    link: link
+  };
+}]);
+
 var ninaControllers = angular.module('ninaControllers', []);
 
 ninaControllers.controller('HomeCtrl', ['$scope', '$http', function ($scope, $http) {
 }]);
 
-ninaControllers.controller('TransferCtrl', ['$scope', '$http', function ($scope, $http) {
+ninaControllers.controller('TransferCtrl', ['$scope', '$http', '$compile', function ($scope, $http, $compile) {
 	$http.get('transfers.json').success(function(data) {
     $scope.transfers = data;
+  });
+  $http.get('tvshows.json').success(function(data) {
+    $scope.tvshows = data;
   });
   $scope.hides = {};
   $scope.toggle_hide = function(id) {
@@ -45,6 +84,17 @@ ninaControllers.controller('TransferCtrl', ['$scope', '$http', function ($scope,
       $scope.hides[id] = true;
     }
     return $scope.hides[id];
+  };
+  $scope.test = function() {
+    $http.post('test_rule.json', {pattern:$scope.pattern, kind:$scope.kind, name:$scope.name}).success(function(data) {
+      $scope.test_result = data;
+    })
+  };
+  $scope.show_rule = function(id) {
+    $http.get('views/rule-edit.html').success(function(data) {
+      var elem = document.querySelector('#trans_'+id);
+      $(elem).after($compile(data)($scope));
+    });
   };
 }]);
 
@@ -64,7 +114,7 @@ ninaControllers.controller('SettingsCtrl', ['$scope', '$http', function ($scope,
   });
 
   $scope.save = function() {
-    $http.post('settings.json', {tvshow_folder:$scope.tvshow_folder}).
+    $http.post('settings.json', $scope.settings).
       success(function(data, status, headers, config) {
         $scope.show_error = false;
       }).

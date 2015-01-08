@@ -63,6 +63,38 @@ ninaApp.directive('showEdit', ['$http', '$compile', function($http, $compile) {
   };
 }]);
 
+ninaApp.directive('tvshowName', ['$http', '$q', function($http, $q) {
+  return {
+    require: 'ngModel',
+    link: function(scope, elm, attrs, ctrl) {
+      var usernames = ['Jim', 'John', 'Jill', 'Jackie'];
+
+      ctrl.$asyncValidators.tvshow_name = function(modelValue, viewValue) {
+        if (ctrl.$isEmpty(modelValue)) {
+          // consider empty model valid
+          return $q.when();
+        }
+
+        var def = $q.defer();
+
+        $http.get('').success(function(data) {
+          console.log(data);
+          // Mock a delayed response
+          if (usernames.indexOf(modelValue) === -1) {
+            // The username is available
+            def.resolve();
+          } else {
+            def.reject();
+          }
+
+        });
+
+        return def.promise;
+      };
+    }
+  };
+}]);
+
 var ninaControllers = angular.module('ninaControllers', []);
 
 ninaControllers.controller('HomeCtrl', ['$scope', '$http', function ($scope, $http) {
@@ -104,8 +136,13 @@ ninaControllers.controller('TVShowCtrl', ['$scope', '$http', function ($scope, $
   });
 
   $scope.search = function() {
-    $http.post('search_tvshow.json', {search_term:$scope.search_term});
-  }
+    $http.post('search_tvshow.json', {search_term:$scope.search_term}).success(function(data) {
+      $scope.show_result = true;
+      $scope.search_results = data;
+    });
+  };
+
+  $scope.show_result = false;
 }]);
 
 ninaControllers.controller('SettingsCtrl', ['$scope', '$http', function ($scope, $http) {

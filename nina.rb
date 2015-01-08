@@ -3,6 +3,8 @@ require 'sinatra/base'
 require 'slim'
 require 'json'
 require 'data_mapper'
+require 'rss'
+require 'open-uri'
 
 DataMapper::setup(:default, "sqlite3://#{Dir.pwd}/nina.db")
 
@@ -12,8 +14,75 @@ class Settings
   property :tvshow_folder, String
 end
 
+class Guids
+  include DataMapper::Resource
+  property :guid, String, :key => true
+end
+
 DataMapper.finalize
 Settings.auto_upgrade!
+Guids.auto_upgrade!
+
+def get_rss_torrent(search_term)
+  result = []
+  url = "http://kickass.so/usearch/#{search_term}/?rss=1"
+  open(url) do |rss|
+    feed = RSS::Parser.parse(rss)
+    result += [{ title: feed.channel.title }]
+    feed.items.each do |item|
+      if not Guids.first(:guid => item.guid)
+        # puts item
+        # puts item.guid
+        uri = URI(item.enclosure.url)
+        file_path = "/tmp/#{item.title}.torrent"
+        Net::HTTP.start(uri.host) do |http|
+          # puts "get " + uri.path + '?' + uri.query
+          resp = http.get(uri.path + '?' + uri.query)
+          if resp.code == '302'
+            uri = URI.escape(resp.header['location'], "[]")
+            # puts uri
+            open(file_path, "wb") do |file|
+              file << open(uri).read
+            end
+            Guids.create(:guid => item.guid)
+          else
+            puts "not moved"
+          end
+        end
+      end
+    end
+  end
+  result
+end
+
+def get_rss(search_term)
+  result = []
+  url = "http://kickass.so/usearch/#{search_term}/?rss=1"
+  open(url) do |rss|
+    feed = RSS::Parser.parse(rss)
+    feed.items.each do |item|
+      result += [{title: item.title}]
+    end
+  end
+  return result.to_json()
+end
+
+def cache(url)
+end
+
+def tvshow_exist?(series_name)
+  escaped = URI.escape(series_name)
+  url = "http://thetvdb.com/api/GetSeries.php?seriesname=#{escaped}"
+  doc = Nokogiri::XML(open(url))
+  series_names = doc.css("SeriesName")
+  if series_names.length > 0 && series_names[0].content == series_name
+    return true
+  else
+    return false
+  end
+end
+
+puts tvshow_exist?("The Big Bang Theory")
 
 class Nina < Sinatra::Application
   get '/' do
@@ -53,8 +122,14 @@ class Nina < Sinatra::Application
 
   post '/search_tvshow.json' do
     json = JSON.parse(request.body.read)
-    puts json
-    ""
+    search_term = json['search_term']
+    if search_term
+      search_term = URI.escape(search_term)
+      # puts search_term
+      return get_rss(search_term)
+    else
+      return [].to_json()
+    end
   end
 
   get '/settings.json' do

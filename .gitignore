@@ -5,3 +5,4 @@ public/lib/
 public/views/
 .tags
 *.db
+*.xml

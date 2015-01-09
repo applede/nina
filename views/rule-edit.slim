@@ -1,4 +1,4 @@
-tr
+tr id="rule_{{tid}}"
   td colspan=3
     div.form-inline
       div.form-group
@@ -11,6 +11,7 @@ tr
           option Movie
           option Porn
         span.hspace
-        span(angucomplete-alt id="tvshow_name_{{trans.id}}" placeholder="TV Show name" selected-object="selected_tvshow" local-data="tvshows" search-fields='name' title-field='name' minlength=1  input-class="form-control form-control-small" match-class="hightlight" ng-model="name")
+        span(angucomplete-alt id="tvshow_name_{{trans.id}}" placeholder="TV Show name" selected-object="selected_tvshow" local-data="tvshows" search-fields='name' title-field='name' minlength=1  input-class="form-control form-control-small" match-class="hightlight")
   td
-    button.btn.btn-primary ng-click="test()" Test
+    button.btn.btn-primary ng-click="test_rule(tid)" Test
+tr id="result_{{tid}}"

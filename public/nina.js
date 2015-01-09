@@ -117,14 +117,20 @@ ninaControllers.controller('TransferCtrl', ['$scope', '$http', '$compile', funct
     }
     return $scope.hides[id];
   };
-  $scope.test = function() {
-    $http.post('test_rule.json', {pattern:$scope.pattern, kind:$scope.kind, name:$scope.name}).success(function(data) {
+  $scope.test_rule = function(tid) {
+    $http.post('test_rule.json', {tid:tid, pattern:$scope.pattern, kind:$scope.kind, name:$scope.selected_tvshow.title}).success(function(data) {
       $scope.test_result = data;
-    })
+      $scope.go_disabled = !$scope.test_result.ok;
+      $http.get('views/action-confirm.html').success(function(data) {
+        var elem = document.querySelector('#result_'+tid);
+        $(elem).html($compile(data)($scope));
+      });
+    });
   };
   $scope.show_rule = function(id) {
     $http.get('views/rule-edit.html').success(function(data) {
       var elem = document.querySelector('#trans_'+id);
+      $scope.tid = id;
       $(elem).after($compile(data)($scope));
     });
   };

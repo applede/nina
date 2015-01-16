@@ -17,9 +17,9 @@
   ],
   "dependencies": {
     "angular": "~1.3.8",
-    "bootstrap": "~3.3.1",
     "jquery": "~2.1.3",
     "angular-route": "~1.3.8",
-    "angucomplete-alt": "~0.0.33"
+    "Semantic-UI": "*",
+    "font-awesome": "~4.2.0"
   }
 }

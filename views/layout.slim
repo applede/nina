@@ -3,29 +3,30 @@ html ng-app="nina"
   head
     meta charset="utf-8"
     title Nina: Media manager
-    link href="/lib/bootstrap/dist/css/bootstrap.css" rel="stylesheet"
-    link rel="stylesheet" href="/lib/angucomplete-alt/angucomplete-alt.css"
+    link href="/lib/Semantic-UI/dist/semantic.min.css" rel="stylesheet" type="text/css"
+    link href="/lib/font-awesome/css/font-awesome.css" rel="stylesheet" type="text/css"
+    / link href="/lib/bootstrap/dist/css/bootstrap.css" rel="stylesheet"
+    /link rel="stylesheet" href="/lib/angucomplete-alt/angucomplete-alt.css"
     link href="/nina.css" rel="stylesheet"
     script src="/lib/jquery/dist/jquery.min.js"
-    script src="/lib/bootstrap/dist/js/bootstrap.js"
+    script src="/lib/Semantic-UI/dist/semantic.min.js"
+    /script src="/lib/bootstrap/dist/js/bootstrap.js"
     script src="/lib/angular/angular.js"
     script src="/lib/angular-route/angular-route.js"
-    script src="/lib/angucomplete-alt/angucomplete-alt.js"
+    / script src="/lib/angular-bootstrap/ui-bootstrap-tpls.js"
+    /script src="/lib/angucomplete-alt/angucomplete-alt.js"
     script src="/nina.js"
     script src="//localhost:35729/livereload.js"
 
   body
-    nav.navbar.navbar-inverse.navbar-fixed-top
-      .container-fluid
-        .navbar-header
-          a.navbar-brand href="#/home" Nina
-        .collapse.navbar-collapse
-          ul.nav.navbar-nav
-            li
-              a href="#/transfers" Transfers
-            li
-              a href="#/tvshows" TV Shows
-            li
-              a href="#/settings" Settings
-              
-    div(ng-view)
+    div.ui.page.grid
+      div.row
+        nav.ui.fixed.menu.inverted.navbar
+          a.brand.item href="#/home" Nina
+          a.active.item href= "#/home" Home
+          a.item href="#/transfers" Transfers
+          a.item href="#/rules" Rules
+    
+      div.row
+        div.column.padding-reset  
+          div(ng-view)

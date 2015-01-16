@@ -1,6 +1,7 @@
 var ninaApp = angular.module('nina', [
   'ngRoute',
-  'angucomplete-alt',
+  // 'ui.bootstrap',
+  // 'angucomplete-alt',
   'ninaControllers'
 ]);
 
@@ -18,6 +19,10 @@ ninaApp.config(['$routeProvider',
       when('/tvshows', {
         templateUrl: 'views/tvshows.html',
         controller: 'TVShowCtrl'
+      }).
+      when('/rules', {
+        templateUrl: 'views/rules.html',
+        controller: 'RulesCtrl'
       }).
       when('/settings', {
         templateUrl: 'views/settings.html',
@@ -45,67 +50,55 @@ ninaApp.config(['$routeProvider',
 //   };
 // });
 
-ninaApp.directive('showEdit', ['$http', '$compile', function($http, $compile) {
-  function link(scope, element, attrs) {
-    scope.$watch(attrs.show, function(value) {
-      if (value) {
-        $http.get('views/rule-edit.html').then(function(data) {
-          el = $compile(data)(scope);
-          element.html("");
-          element.append(el);
-        })
-      }
-    });
-  }
-
-  return {
-    link: link
-  };
-}]);
-
-ninaApp.directive('tvshowName', ['$http', '$q', function($http, $q) {
-  return {
-    require: 'ngModel',
-    link: function(scope, elm, attrs, ctrl) {
-      var usernames = ['Jim', 'John', 'Jill', 'Jackie'];
-
-      ctrl.$asyncValidators.tvshow_name = function(modelValue, viewValue) {
-        if (ctrl.$isEmpty(modelValue)) {
-          // consider empty model valid
-          return $q.when();
-        }
-
-        var def = $q.defer();
-
-        $http.get('').success(function(data) {
-          console.log(data);
-          // Mock a delayed response
-          if (usernames.indexOf(modelValue) === -1) {
-            // The username is available
-            def.resolve();
-          } else {
-            def.reject();
-          }
-
-        });
-
-        return def.promise;
-      };
-    }
-  };
-}]);
-
 var ninaControllers = angular.module('ninaControllers', []);
 
-ninaControllers.controller('HomeCtrl', ['$scope', '$http', function ($scope, $http) {
+ninaControllers.controller('HomeCtrl', ['$scope', '$http', '$compile', function ($scope, $http) {
+  $scope.test_run = function() {
+    $http.get("/test_run").success(function(data) {
+      $scope.results = data;
+      $scope.show_result = true;
+      // $scope.$apply();
+      // var elem = document.querySelector('#result');
+      // $(elem).html(data);
+    });
+  };
+  $scope.add_rule = function() {
+    var action = $('.ui.secondary.menu > .active').attr('data-tab');
+    $http.post("/add_rule", {pattern:$scope.pattern, action:action}).success(function(data) {
+      $scope.add_result = data;
+      $scope.show_add_result = true;
+    })
+  }
+  // $scope.active_class = function(str) {
+  //   console.log(str);
+  //   if ($scope.active == str) {
+  //     return "active";
+  //   } else {
+  //     return "";
+  //   }
+  // }
+  // $scope.ignore = function() {
+  //   $scope.active = "ignore";
+  // }
+  // $scope.keep = function() {
+  //   $scope.active = "keep";
+  // }
+  $('.menu .item').tab();
+  $('.ui.selection.dropdown').dropdown();
+  $scope.show_result = false;
+  $scope.show_add_result = false;
+  // $scope.active = "";
 }]);
 
 ninaControllers.controller('TransferCtrl', ['$scope', '$http', '$compile', function ($scope, $http, $compile) {
 	$http.get('transfers.json').success(function(data) {
-    $scope.transfers = data;
+    // for dev
+    $scope.transfers = data.slice(0, 1);
   });
   $http.get('tvshows.json').success(function(data) {
-    $scope.tvshows = data;
+    $scope.tvshows = data.map(function(item) {
+      return item.name;
+    });
   });
   $scope.hides = {};
   $scope.toggle_hide = function(id) {
@@ -134,6 +127,24 @@ ninaControllers.controller('TransferCtrl', ['$scope', '$http', '$compile', funct
       $(elem).after($compile(data)($scope));
     });
   };
+  $scope.action = 'Copy';
+  $scope.is_action_copy = function() {
+    return $scope.action == 'Copy';
+  };
+  $scope.change_action = function() {
+    console.log("here");
+    console.log($scope.action);
+    if ($scope.action == "Copy") {
+      $scope.is_action_copy = true;
+    } else {
+      $scope.is_action_copy = false;
+    }
+  };
+  $scope.kind = 'TV Show';
+  $scope.options = {
+    action: ["Ignore", "Copy"],
+    kind: ["TV Show", "Movie", "porn"]
+  };
 }]);
 
 ninaControllers.controller('TVShowCtrl', ['$scope', '$http', function ($scope, $http) {
@@ -149,6 +160,12 @@ ninaControllers.controller('TVShowCtrl', ['$scope', '$http', function ($scope, $
   };
 
   $scope.show_result = false;
+}]);
+
+ninaControllers.controller('RulesCtrl', ['$scope', '$http', '$compile', function ($scope, $http) {
+  $http.get('/rules').success(function(data) {
+    $scope.rules = data;
+  });
 }]);
 
 ninaControllers.controller('SettingsCtrl', ['$scope', '$http', function ($scope, $http) {

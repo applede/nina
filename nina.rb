@@ -26,10 +26,20 @@ class Trans
   property :status, String
 end
 
+class Rules
+  include DataMapper::Resource
+  property :id, Serial
+  property :pattern, String
+  property :action, String
+  property :kind, String
+  property :name, String
+end
+
 DataMapper.finalize
 Settings.auto_upgrade!
 Guids.auto_upgrade!
 Trans.auto_upgrade!
+Rules.auto_upgrade!
 
 def get_rss_torrent(search_term)
   result = []
@@ -169,6 +179,74 @@ class Nina < Sinatra::Application
     result.to_json()
   end
 
+  def test_run
+    rules = Rules.all()
+    result = []
+    lines = `transmission-remote --list`
+    lines.split("\n").each do |line|
+      id = line[0..3]
+      status = line[57..69]
+      name = line[70..-1]
+      if name && id && status
+        id.strip!()
+        status.strip!()
+        if status == 'Finished'
+          info = `transmission-remote -t #{id} --info`
+          info.split("\n").find_index do |info_line|
+            info_line =~ /Location: (.+)/
+          end
+          full_path = $1 + "/" + name
+          files = []
+          if is_dir = File.directory?(full_path)
+            Dir.entries(full_path).each do |file|
+              if file == '.' || file == '..'
+                next
+              end
+              index = rules.find_index do |rule|
+                file =~ Regexp.new(rule.pattern)
+              end
+              if index
+                rule = rules[index]
+                result += [{type:"success", title: "Match",
+                            message: "Pattern #{rule.pattern}", transfer: name, file: file,
+                            action: rule.action}]
+              else
+                result += [{type:"danger", title: "Error", message: "No rule matches",
+                            transfer: name, file: file}]
+                return result
+              end
+            end
+          end
+        end
+      end
+    end
+    return result
+  end
+
+  get '/test_run' do
+    test_run().to_json()
+  end
+
+  post '/add_rule' do
+    json = JSON.parse(request.body.read)
+    pattern = json['pattern']
+    action = json['action']
+    if pattern && pattern.length > 0 && ['ignore', 'keep', 'unrar'].include?(action)
+      rule = Rules.create({pattern:pattern, action:action})
+      if rule.saved?
+        result = {id:rule.id}
+      else
+        result = {id:-1}
+      end
+    end
+    result.to_json()
+  end
+
+  get '/rules' do
+    rules = Rules.all()
+    rules.to_json()
+  end
+
   def app_settings()
     x = Settings.get(1)
     if not x
@@ -189,7 +267,22 @@ class Nina < Sinatra::Application
           id.strip!()
           status.strip!()
           if status == 'Finished'
-            @trans += [{id:id, name:name, status:status}]
+            info = `transmission-remote -t #{id} --info`
+            location = ''
+            info.split("\n").each do |info_line|
+              if info_line =~ /Location: (.+)/
+                location = $1
+                break
+              end
+            end
+            full_path = location + "/" + name
+            files = []
+            if is_dir = File.directory?(full_path)
+              Dir.entries(full_path).each do |file|
+                files += [file] unless file[0] == '.'
+              end
+            end
+            @trans += [{id:id, name:name, files:files, is_dir:is_dir, status:status}]
           end
         end
       end

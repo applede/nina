@@ -1,17 +1,41 @@
 .container-fluid
   h1 Transfers
   div
-    table.table
-      thead
-        th Id
-        th Name
-        th Status
-        th Action
-      tbody
-        tr ng-repeat="trans in transfers" id="trans_{{trans.id}}"
-          td {{trans.id}}
-          td {{trans.name}}
-          td {{trans.status}}
-          td
-            button.btn.btn-default ng-click="show_rule(trans.id)" Add Rule
-        / tr show-edit='' ng-repeat-end='' id="rule_{{trans.id}}"
+    accordion close-others=true
+      accordion-group ng-repeat="trans in transfers"
+        accordion-heading
+          /div.addon {{trans.id}}
+          | {{trans.name}}
+          div.pull-right {{trans.status}}
+        accordion close-others=true
+          accordion-group ng-repeat="file in trans.files"
+            accordion-heading
+              | {{file}}
+            div.form-inline
+              div.form-group
+                label.hspace Pattern
+                input.form-control placeholder=".+" ng-model="pattern"
+                span.hspace
+                label.hspace Action
+                select.form-control ng-model="action" ng-options="opt for opt in options.action"
+                div collapse="!is_action_copy"
+                  label.hspace Kind
+                  select.form-control ng-model="kind" ng-options="opt for opt in options.kind"
+                  span.hspace
+                  input type="text" ng-model="name" placeholder="TV show name" typeahead="name for name in tvshows | filter:$viewValue" typeahead-loading="loadingNames" class="form-control"
+                  span.hspace
+                  button.btn.btn-primary ng-click="test_rule(tid)" Test
+    /table.table
+    /  thead
+    /    th Id
+    /    th Name
+    /    th Status
+    /    th Action
+    /  tbody
+    /    tr ng-repeat="trans in transfers" id="trans_{{trans.id}}"
+    /      td {{trans.id}}
+    /      td {{trans.name}}
+    /      td {{trans.status}}
+    /      td
+    /        button.btn.btn-default ng-click="show_rule(trans.id)" Add Rule
+    /    / tr show-edit='' ng-repeat-end='' id="rule_{{trans.id}}"

@@ -1,11 +1,22 @@
 body {
-  padding: 60px 30px;
+  font-family: "Helvetica Neue"
+  font-weight: lighter;
+  /*padding: 60px 30px;*/
 }
 
 .hspace {
-	padding: 0px 10px;
+	padding: 0em 1em;
 }
 
 .angucomplete-holder {
 	display: inline;
+}
+
+.navbar-inner {
+  -webkit-box-shadow: 0 3px 3px rgba(0,0,0,0.175);
+  box-shadow: 0 3px 3px rgba(0,0,0,0.175);
+}
+
+.ui.button {
+  /*font-weight: normal;*/
 }

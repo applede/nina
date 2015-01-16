@@ -3,12 +3,12 @@
   form.form-horizontal
   	div.form-group
   		label.col-sm-2.control-label TV Show Folder
-  		div.col-sm-9
+  		div.col-sm-6
   			input.form-control type="text" placeholder="eg. /Volumes/media/tvshows" ng-model="settings.tvshow_folder"
   		div.col-sm-1
   			button.btn.btn-default type="submit" ng-click="save()" Save
   	div.form-group
-  		div.col-sm-9.col-sm-offset-2
+  		div.col-sm-6.col-sm-offset-2
   			div.alert.alert-danger role="alert" ng-show="show_error"
   				| {{error_msg}}
 

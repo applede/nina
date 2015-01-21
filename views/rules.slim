@@ -1,5 +1,75 @@
 h1 Rules
-.ui.message ng-repeat="rule in rules"
-  code {{rule.pattern}}
-  i.fa.fa-arrow-right.hspace
-  | {{rule.action}}
+table.ui.table
+  thead
+    th Id
+    th Pattern
+    th Action
+    th As
+    th Name
+    th Rename
+    th
+  tbody
+    tr ng-repeat="rule in rules"
+      td
+        | {{rule.id}}
+      td
+        code {{rule.pattern}}
+      td
+        | {{rule.action}}
+      td
+        | {{rule.kind}}
+      td
+        | {{rule.name}}
+      td
+        | {{rule.rename}}
+      td
+        a.small-padding ng-click="up_rule(rule)"
+          i.fa.fa-chevron-up
+      
+        a.small-padding ng-click="down_rule(rule)"
+          i.fa.fa-chevron-down
+      
+        a.small-padding ng-click="edit_rule(rule)"
+          i.fa.fa-pencil-square-o
+
+.ui.modal
+  i.close.icon
+  .header Edit Rule # {{rule.id}}
+  .content
+    .ui.form
+      .fields
+        .six.wide.field
+          label Pattern
+          input type="text" ng-model="rule.pattern"
+        .two.wide.field
+          label Action
+          .ui.action.compact.selection.dropdown
+            input type="hidden" name="action" ng-model="rule.action"
+            .default.text Select
+            i.dropdown.icon
+            .menu
+              .item data-value="ignore" Ignore
+              .item data-value="keep" Keep
+              .item data-value="unrar" Unrar
+        .three.wide.field
+          label Kind
+          .ui.kind.compact.selection.dropdown
+            input type="hidden" name="kind" ng-model="rule.kind"
+            .default.text Select
+            i.dropdown.icon
+            .menu
+              .item data-value="tvshow" TV Show
+              .item data-value="movie" Movie
+              .item data-value="porn" Porn
+      .fields
+        .six.wide.field
+          label Rename
+          input type="text" ng-mode="rule.rename"
+        .two.wide.field
+        .five.wide.field
+          label Name
+          input type="text" ng-model="rule.name"
+        .one.wide.field
+        .two.wide.field
+          label &nbsp;
+          .ui.primary.submit.button ng-click="done_rule()" Done

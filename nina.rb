@@ -1,5 +1,6 @@
 require 'sinatra/base'
 # require 'sinatra/reloader'
+require 'sinatra/config_file'
 require 'slim'
 require 'json'
 require 'data_mapper'
@@ -33,6 +34,7 @@ class Rules
   property :action, String
   property :kind, String
   property :name, String
+  property :rename, String
 end
 
 DataMapper.finalize
@@ -100,10 +102,15 @@ def tvshow_exist?(series_name)
   end
 end
 
-# puts tvshow_exist?("The Big Bang Theory")
+class Transfer
+  attr :unrar
+end
 
 class Nina < Sinatra::Application
   attr :trans, :tvshow_folder
+
+  register Sinatra::ConfigFile
+  config_file 'config.yml'
 
   get '/' do
     # send_file File.expand_path('index.html', settings.public_folder)
@@ -179,11 +186,42 @@ class Nina < Sinatra::Application
     result.to_json()
   end
 
-  def test_run
+  def renamed(pattern, rename, src)
+    return src.sub(Regexp.new(pattern, Regexp::IGNORECASE), rename)
+  end
+
+  def apply_rule(file, rules, real)
+    index = rules.find_index do |rule|
+      file =~ Regexp.new(rule.pattern, Regexp::IGNORECASE)
+    end
+    if index
+      rule = rules[index]
+      dest = ''
+      if rule['rename']
+        dest = renamed(rule.pattern, rule.rename, file)
+      end
+      if real
+        if rule.action == 'keep'
+          `cp '#{full_path}/#{file}' '#{@tvshow_folder}/#{rule.name}/#{dest}'`
+          # puts "cp '#{full_path}/#{file}' '#{@tvshow_folder}/#{rule.name}/#{dest}'"
+        elsif rule.action == 'unrar'
+          unrar = true
+          `unrar e -o+ "#{full_path}/#{file}" "#{full_path}/"`
+        end
+      end
+      return true, unrar, [{type:"success", file: file, rule: rule, dest: dest}]
+    else
+      return false, false, [{type:"error", file: file, rule: {}, dest: ''}]
+    end
+  end
+
+  def run_rules(real)
+    set_tvshow_folder()
     rules = Rules.all()
     result = []
     lines = `transmission-remote --list`
     lines.split("\n").each do |line|
+      Transfer.new(line)
       id = line[0..3]
       status = line[57..69]
       name = line[70..-1]
@@ -197,26 +235,58 @@ class Nina < Sinatra::Application
           end
           full_path = $1 + "/" + name
           files = []
+          file_results = []
+          unrar = false
           if is_dir = File.directory?(full_path)
             Dir.entries(full_path).each do |file|
-              if file == '.' || file == '..'
-                next
-              end
-              index = rules.find_index do |rule|
-                file =~ Regexp.new(rule.pattern)
-              end
-              if index
-                rule = rules[index]
-                result += [{type:"success", title: "Match",
-                            message: "Pattern #{rule.pattern}", transfer: name, file: file,
-                            action: rule.action}]
-              else
-                result += [{type:"danger", title: "Error", message: "No rule matches",
-                            transfer: name, file: file}]
+              next if file == '.' || file == '..'
+              success, unrar, file_result = apply_rule(file, rules, real)
+              file_results += [file_result]
+              unless success
+                result += [{transfer: name, file_results: file_results}]
                 return result
               end
+              # index = rules.find_index do |rule|
+              #   file =~ Regexp.new(rule.pattern, Regexp::IGNORECASE)
+              # end
+              # if index
+              #   rule = rules[index]
+              #   dest = ''
+              #   if rule['rename']
+              #     dest = renamed(rule.pattern, rule.rename, file)
+              #   end
+              #   if real
+              #     if rule.action == 'keep'
+              #       `cp '#{full_path}/#{file}' '#{@tvshow_folder}/#{rule.name}/#{dest}'`
+              #       # puts "cp '#{full_path}/#{file}' '#{@tvshow_folder}/#{rule.name}/#{dest}'"
+              #     elsif rule.action == 'unrar'
+              #       unrar = true
+              #       `unrar e -o+ "#{full_path}/#{file}" "#{full_path}/"`
+              #     end
+              #   end
+              #   file_results += [{type:"success", file: file, rule: rule, dest: dest}]
+              # else
+              #   file_results += [{type:"error", file: file, rule: {}, dest: ''}]
+              #   result += [{transfer: name, file_results: file_results}]
+              #   return result
+              # end
+            end
+            if real
+              unless unrar
+                `transmission-remote -t #{id} --remove`
+                `rm -rf #{full_path}`
+                # puts "rm -rf #{full_path}"
+              end
+            end
+          else
+            success, unrar, file_result = apply_rule(full_path, rules, real)
+            file_results += [file_result]
+            unless success
+              result += [{transfer: name, file_results: file_results}]
+              return result
             end
           end
+          result += [{transfer: name, file_results: file_results}]
         end
       end
     end
@@ -224,17 +294,40 @@ class Nina < Sinatra::Application
   end
 
   get '/test_run' do
-    test_run().to_json()
+    run_rules(false).to_json()
+  end
+
+  get '/run' do
+    run_rules(true).to_json()
+  end
+
+  def valid_rule(json)
+    pattern = json['pattern']
+    action = json['action']
+    kind = json['kind']
+    name = json['name']
+    return false unless pattern
+    return false unless pattern.length > 0
+    return false unless action
+    if action == 'ignore'
+      return true
+    elsif action == 'unrar'
+      return true
+    elsif action == 'keep'
+      return false unless ['tvshow', 'movie', 'porn'].include?(kind)
+      return false unless name
+      return false unless name.length > 0
+      return true
+    end
+    return false
   end
 
   post '/add_rule' do
     json = JSON.parse(request.body.read)
-    pattern = json['pattern']
-    action = json['action']
-    if pattern && pattern.length > 0 && ['ignore', 'keep', 'unrar'].include?(action)
-      rule = Rules.create({pattern:pattern, action:action})
+    if valid_rule(json)
+      rule = Rules.create(json)
       if rule.saved?
-        result = {id:rule.id}
+        result = rule
       else
         result = {id:-1}
       end
@@ -245,6 +338,31 @@ class Nina < Sinatra::Application
   get '/rules' do
     rules = Rules.all()
     rules.to_json()
+  end
+
+  post '/rule/:id' do |id|
+    json = JSON.parse(request.body.read)
+    if valid_rule(json)
+      rule = Rules.get(id)
+      if rule.update(json)
+        result = rule
+      else
+        result = {id:-1}
+      end
+    end
+    result.to_json()
+  end
+
+  post '/test_rule' do
+    json = JSON.parse(request.body.read)
+    pattern = json['rule']['pattern']
+    rename = json['rule']['rename']
+    example = json['example']
+    result = {dest: ""}
+    if pattern && rename && example
+      result = {dest: renamed(pattern, rename, example)}
+    end
+    result.to_json()
   end
 
   def app_settings()

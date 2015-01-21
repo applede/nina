@@ -1,7 +1,5 @@
 var ninaApp = angular.module('nina', [
   'ngRoute',
-  // 'ui.bootstrap',
-  // 'angucomplete-alt',
   'ninaControllers'
 ]);
 
@@ -33,61 +31,111 @@ ninaApp.config(['$routeProvider',
       });
   }]);
 
-// ninaApp.directive('showEdit', function($compile) {
-//   return {
-//     scope: true,
-//     link: function(scope, element, attrs) {
-//       var el;
-//       attrs.$observe('template', function(tpl) {
-//         if (angular.isDefined(tpl)) {
-//           console.log(tpl);
-//           el = $compile(tpl)(scope);
-//           element.html("");
-//           element.append(el);
-//         }
-//       });
-//     }
-//   };
-// });
+ninaApp.directive('dropdown', ['$timeout', function ($timeout) {
+  return {
+    restrict: "EA",
+    replace: true,
+    scope: {
+      ngModel: '=',
+      data: '='
+    },
+    template: '<div class="ui compact selection dropdown"><input type="hidden" name="id"><div class="default text">Select</div><i class="dropdown icon"></i><div class="menu"><div class="item" ng-repeat="item in data" data-value="{{item.value}}">{{item.label}}</div></div></div>',
+    link: function (scope, elm, attr) { 
+      var changeBound = false;
+      elm.dropdown({
+        onShow: function() {
+          if (!changeBound) {
+            elm.dropdown({
+              onChange: function(value) {                    
+                scope.$apply(function(scope) {
+                  scope.ngModel = value;
+                });
+              }
+            })
+            
+            changeBound = true;
+          }
+        }
+      });
+      scope.$watch("ngModel", function(newValue, oldValue) {
+        elm.dropdown('set selected', newValue);
+      });
+    }
+  };
+}]);
 
 var ninaControllers = angular.module('ninaControllers', []);
 
 ninaControllers.controller('HomeCtrl', ['$scope', '$http', '$compile', function ($scope, $http) {
+  $('.ui.modal').modal();
+  $('.menu .item').tab();
+  $scope.actions = [
+    { label: 'Ignore', value: 'ignore' },
+    { label: 'Keep', value: 'keep' },
+    { label: 'Unrar', value: 'unrar' },
+  ];
+  $scope.kinds = [
+    { label: 'TV Show', value: 'tvshow' },
+    { label: 'Movie', value: 'movie' },
+    { label: 'Porn', value: 'porn' },
+  ];
+
   $scope.test_run = function() {
     $http.get("/test_run").success(function(data) {
       $scope.results = data;
       $scope.show_result = true;
-      // $scope.$apply();
-      // var elem = document.querySelector('#result');
-      // $(elem).html(data);
     });
   };
-  $scope.add_rule = function() {
-    var action = $('.ui.secondary.menu > .active').attr('data-tab');
-    $http.post("/add_rule", {pattern:$scope.pattern, action:action}).success(function(data) {
-      $scope.add_result = data;
-      $scope.show_add_result = true;
-    })
+  $scope.result_class = function(r) {
+    if (r.rule) {
+      if (r.rule.action == "keep") {
+        return "positive";
+      } else if (r.rule.action == "ignore") {
+        return "warning";
+      } else if (r.rule.action == 'unrar') {
+        return 'positive';
+      }
+    }
+    return "red";
+  };
+  $scope.show_rule = function(r) {
+    if (r.rule && r.rule.action == 'keep') {
+      return true;
+    }
+    return false;
+  };
+  $scope.edit_rule = function(r) {
+    $scope.rule = angular.copy(r.rule);
+    if (!$scope.rule.id) {
+      $scope.rule = {pattern: "", action: "ignore", kind: "tvshow"};
+    };
+    $scope.example = r.file;
+    $scope.test_rule();
+
+    $('.ui.modal').modal('show');
+  };
+  $scope.test_rule = function() {
+    $http.post("/test_rule", {rule: $scope.rule, example: $scope.example}).success(function(data) {
+      $scope.dest = data.dest;
+    });
+  };
+  $scope.done_rule = function() {
+    var url;
+    if ($scope.rule.id) {
+      url = "/rule/" + $scope.rule.id;
+    } else {
+      url = "/add_rule";
+    }
+    $http.post(url, $scope.rule).success(function(data) {
+      $('.ui.modal').modal('hide');
+    });
+  };
+  $scope.confirm = function() {
+    $http.get("/run").sucess(function(data) {
+      $scope.results = data;
+      $scope.show_result = false;
+    });
   }
-  // $scope.active_class = function(str) {
-  //   console.log(str);
-  //   if ($scope.active == str) {
-  //     return "active";
-  //   } else {
-  //     return "";
-  //   }
-  // }
-  // $scope.ignore = function() {
-  //   $scope.active = "ignore";
-  // }
-  // $scope.keep = function() {
-  //   $scope.active = "keep";
-  // }
-  $('.menu .item').tab();
-  $('.ui.selection.dropdown').dropdown();
-  $scope.show_result = false;
-  $scope.show_add_result = false;
-  // $scope.active = "";
 }]);
 
 ninaControllers.controller('TransferCtrl', ['$scope', '$http', '$compile', function ($scope, $http, $compile) {
@@ -162,10 +210,48 @@ ninaControllers.controller('TVShowCtrl', ['$scope', '$http', function ($scope, $
   $scope.show_result = false;
 }]);
 
-ninaControllers.controller('RulesCtrl', ['$scope', '$http', '$compile', function ($scope, $http) {
+ninaControllers.controller('RulesCtrl', ['$scope', '$http', function ($scope, $http) {
+  $scope.up_rule = function(rule) {
+  };
+  $scope.down_rule = function(rule) {
+    var next_rule = $scope.rules[rule.id];  // rule id is 1 based
+    var next_rule_id = next_rule.id;
+    var current_rule_id = rule.id;
+    next_rule.id = current_rule_id;
+    rule.id = next_rule_id;
+    $http.post("/rule/" + rule.id, rule).success(function(data) {
+      $http.post("/rule/" + next_rule.id, next_rule).success(function(data) {
+        $http.get('/rules').success(function(data) {
+          $scope.rules = data;
+        });
+      });
+    });
+  };
+  $scope.edit_rule = function(rule) {
+    $scope.rule = angular.copy(rule);
+
+    $('.ui.modal').modal('show');
+    $('.ui.action.selection.dropdown').dropdown('set selected', $scope.rule.action);
+    $('.ui.kind.selection.dropdown').dropdown('set selected', $scope.rule.kind);
+  };
+  $scope.done_rule = function() {
+    var kind = $('.ui.kind.selection.dropdown').dropdown('get value');
+    $scope.rule.kind = kind;
+    $http.post("/rule/" + $scope.rule.id, $scope.rule).success(function(data) {
+      $('.ui.modal').modal('hide');
+      if (data['id'] > 0) {
+        $scope.rules[data['id'] - 1] = data;
+        // $http.get('/rules').success(function(data) {
+        //   $scope.rules = data;
+        // });
+      }
+    });
+  };
   $http.get('/rules').success(function(data) {
     $scope.rules = data;
   });
+  $('.ui.modal').modal();
+  $('.ui.selection.dropdown').dropdown();
 }]);
 
 ninaControllers.controller('SettingsCtrl', ['$scope', '$http', function ($scope, $http) {

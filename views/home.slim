@@ -1,70 +1,70 @@
 h1 Home
 button.ui.primary.button ng-click="test_run()" Test Run
-button.ui.button Run
-.ui.message ng-repeat="result in results" ng-show="show_result"
-  .header
-    | {{result.message}}
-  .ui.middle.aligned.grid
-    .row
-      .right.aligned.two.wide.column
-        ' Transfer:
-      .fourteen.wide.column
-        code
-          | {{result.transfer}}
-    .row
-      .right.aligned.two.wide.column
-        label
-          ' File:
-      .fourteen.wide.column
-        code
-          | {{result.file}}
-    .row
-      .right.aligned.two.wide.column
-        label
-          ' Action:
-      .fourteen.wide.column
-        div
-          | {{result.action}}
 
-.ui.message ng-show="show_result"
-  .header Add new rule
-  .ui.middle.aligned.grid
-    .row
-      .right.aligned.two.wide.column
-        label
-          ' Pattern:
-      .fourteen.wide.column
-        .ui.input
-          input type="text" ng-model="pattern"
-    .row
-      .two.wide.column
-      .fourteen.wide.column
-        .ui.secondary.menu
-          a.item data-tab="ignore" Ignore
-          a.item data-tab="keep" Keep
-          a.item data-tab="unrar" Unrar
-        .ui.tab.segment data-tab="ignore"
-          div
-            | Ignore files matching {{pattern}}
-        .ui.tab.segment data-tab="keep"
-          div
-            | Move files matching {{pattern}} to
-            .ui.selection.dropdown
-              input type="hidden" name="kind"
-              .default.text Select
-              i.dropdown.icon
-              .menu
-                .item data-value="tvshow" TV Show
-                .item data-value="movie" Movie
-                .item data-value="porn" Porn
-            .ui.input
-              input type="text"
-        .ui.tab.segment data-tab="unrar"
-          div
-            | Run unrar first
-    .row
-      .two.wide.column
-      .fourteen.wide.column
-        .ui.primary.submit.button ng-click="add_rule()" Add
-.ui.message ng-show="show_add_result"
-  .header Rule {{add_result.id}} added
+table.ui.table ng-repeat="result in results" ng-show="show_result"
+  thead
+    tr
+      th colspan=2
+        | {{result.transfer}}
+  tbody
+    tr ng-repeat-start="file in result.file_results"
+      td
+        | {{file.file}}
+      td
+        | {{file.rule.pattern}}
+    tr ng-repeat-end=''
+      td colspan=2 ng-class="result_class(file)"
+        ' {{file.rule.action}}
+        span ng-show="show_rule(file)"
+          span.hspace
+            span.ui.label
+              | {{file.rule.kind}}
+          .ui.compact.basic.button
+            | {{file.rule.name}}
+          i.fa.fa-chevron-right
+          .ui.compact.basic.button
+            | {{file.dest}}
+        div style="display: inline-block; float: right;"
+          a ng-click="edit_rule(file)"
+            i.fa.fa-pencil-square-o
+.ui.primary.button ng-click="run()" Run
+.ui.modal
+  i.close.icon
+  .header Edit Rule # {{rule.id}}
+  .content
+    .ui.form
+      .fields
+        .six.wide.field
+          label Pattern
+          input type="text" ng-model="rule.pattern"
+        .two.wide.field
+          label Action
+          dropdown ng-model="rule.action" data="actions"
+        .three.wide.field
+          label Kind
+          dropdown ng-model="rule.kind" data="kinds"
+      .fields
+        .six.wide.field
+          label Rename
+          input type="text" ng-model="rule.rename"
+        .two.wide.field
+          label &nbsp;
+          .ui.submit.button ng-click="test_rule()" Test
+        .five.wide.field
+          label Name
+          input type="text" ng-model="rule.name"
+        .one.wide.field
+        .two.wide.field
+          label &nbsp;
+          .ui.primary.submit.button ng-click="done_rule()" Done
+      .fields
+        .sixteen.wide.field
+          label Example
+          code
+            | {{example}}
+      .fields
+        .sixteen.wide.field
+          label
+            i.fa.fa-arrow-right
+          code
+            | {{dest}}

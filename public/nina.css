@@ -5,7 +5,11 @@ body {
 }
 
 .hspace {
-	padding: 0em 1em;
+	margin: 0em 1em;
+}
+
+.small-padding {
+  padding: 0em 0.2em;
 }
 
 .angucomplete-holder {

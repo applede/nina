@@ -43,28 +43,14 @@ table.ui.table
           input type="text" ng-model="rule.pattern"
         .two.wide.field
           label Action
-          .ui.action.compact.selection.dropdown
-            input type="hidden" name="action" ng-model="rule.action"
-            .default.text Select
-            i.dropdown.icon
-            .menu
-              .item data-value="ignore" Ignore
-              .item data-value="keep" Keep
-              .item data-value="unrar" Unrar
+          dropdown ng-model="rule.action" data="actions"
         .three.wide.field
           label Kind
-          .ui.kind.compact.selection.dropdown
-            input type="hidden" name="kind" ng-model="rule.kind"
-            .default.text Select
-            i.dropdown.icon
-            .menu
-              .item data-value="tvshow" TV Show
-              .item data-value="movie" Movie
-              .item data-value="porn" Porn
+          dropdown ng-model="rule.kind" data="kinds"
       .fields
         .six.wide.field
           label Rename
-          input type="text" ng-mode="rule.rename"
+          input type="text" ng-model="rule.rename"
         .two.wide.field
         .five.wide.field
           label Name

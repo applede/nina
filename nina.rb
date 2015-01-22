@@ -102,12 +102,108 @@ def tvshow_exist?(series_name)
   end
 end
 
+$test = true
+$tvshow_folder = ''
+
+def sh(str)
+  puts str
+  if not $test
+    `#{str}`
+  end
+end
+
+def renamed(pattern, rename, src)
+  return src.sub(Regexp.new(pattern, Regexp::IGNORECASE), rename)
+end
+
 class Transfer
-  attr :unrar
+  attr :id, :status, :name, :full_path, :result, :restart
+
+  def self.from(line)
+    id = line[0..3]
+    status = line[57..69]
+    name = line[70..-1]
+    if name && id && status
+      id.strip!()
+      status.strip!()
+      if status == 'Finished'
+        return Transfer.new(id, status, name)
+      end
+    end
+    return nil
+  end
+
+  def initialize(id, status, name)
+    @id = id
+    @status = status
+    @name = name
+    info = `transmission-remote -t #{@id} --info`
+    info.split("\n").find_index do |line|
+      line =~ /Location: (.+)/
+    end
+    @folder = $1
+    @result = []
+    @restart = false
+  end
+
+  def apply(rules)
+    files = []
+    path = File.join(@folder, @name)
+    if File.directory?(path)
+      return false if not apply_to_folder(rules, path, false)
+      if @restart
+        @result = []
+        return false if not apply_to_folder(rules, path, true)
+      end
+    else
+      return false if not apply_to(rules, @folder, @name)
+    end
+    sh("transmission-remote -t #{@id} --remove")
+    sh("rm -rf #{path}")
+    return true
+  end
+
+  def apply_to_folder(rules, folder, force)
+    Dir.entries(folder).each do |file|
+      next if file == '.' || file == '..'
+      return false if not apply_to(rules, folder, file)
+      break if @restart && not(force)
+    end
+    return true
+  end
+
+  def apply_to(rules, folder, file)
+    index = rules.find_index do |rule|
+      file =~ Regexp.new(rule.pattern, Regexp::IGNORECASE)
+    end
+    if index
+      path = File.join(folder, file)
+      rule = rules[index]
+      dest = ''
+      if rule['rename']
+        dest = renamed(rule.pattern, rule.rename, file)
+      end
+      if rule.action == 'copy'
+        sh("cp '#{path}' '#{$tvshow_folder}/#{rule.name}/#{dest}'")
+      elsif rule.action == 'unrar'
+        @restart = true
+        sh("unrar e -o+ '#{path}' '#{folder}/'")
+      end
+      @result += [{type:"success", file: file, rule: rule, dest: dest}]
+      return true
+    else
+      @result += [{type:"error", file: file, rule: {}, dest: ''}]
+      return false
+    end
+  end
+
+  def result()
+    return { transfer: @name, file_results: @result }
+  end
 end
 
 class Nina < Sinatra::Application
-  attr :trans, :tvshow_folder
+  attr :trans, :app_settings
 
   register Sinatra::ConfigFile
   config_file 'config.yml'
@@ -124,10 +220,10 @@ class Nina < Sinatra::Application
   end
 
   get '/tvshows.json' do
-    set_tvshow_folder()
+    set_settings()
     tvshows = []
-    if @tvshow_folder && File.directory?(@tvshow_folder)
-      Dir.entries(@tvshow_folder).each do |file|
+    if $tvshow_folder && File.directory?($tvshow_folder)
+      Dir.entries($tvshow_folder).each do |file|
         tvshows += [{ name: file }] unless file =~ /^\./
       end
     end
@@ -147,17 +243,17 @@ class Nina < Sinatra::Application
   end
 
   get '/settings.json' do
-    app_settings().to_json()
+    set_settings().to_json()
   end
 
   post '/settings.json' do
     json = JSON.parse(request.body.read)
-    @tvshow_folder = json["tvshow_folder"]
-    if @tvshow_folder && File.directory?(@tvshow_folder)
-      app_settings().update(json)
+    $tvshow_folder = json["tvshow_folder"]
+    if $tvshow_folder && File.directory?($tvshow_folder)
+      @app_settings.update(json)
       ""
     else
-      [500, "#{@tvshow_folder} does not exist"]
+      [500, "#{$tvshow_folder} does not exist"]
     end
   end
 
@@ -168,15 +264,14 @@ class Nina < Sinatra::Application
     kind = json["kind"].strip
     name = json["name"]
     result = {ok: false, action: "No match"}
-    # trans = Trans.all()
     set_trans_list()
-    set_tvshow_folder()
+    set_settings()
     @trans.each do |tran|
       puts tran
       if tran[:id] == tid
         puts tran[:name]
         if tran[:name] =~ /#{pattern}/
-          result = {ok: true, action: "copy to #{@tvshow_folder}/#{name}"}
+          result = {ok: true, action: "copy to #{$tvshow_folder}/#{name}"}
         end
         break
       end
@@ -186,119 +281,99 @@ class Nina < Sinatra::Application
     result.to_json()
   end
 
-  def renamed(pattern, rename, src)
-    return src.sub(Regexp.new(pattern, Regexp::IGNORECASE), rename)
-  end
-
-  def apply_rule(file, rules, real)
-    index = rules.find_index do |rule|
-      file =~ Regexp.new(rule.pattern, Regexp::IGNORECASE)
-    end
-    if index
-      rule = rules[index]
-      dest = ''
-      if rule['rename']
-        dest = renamed(rule.pattern, rule.rename, file)
-      end
-      if real
-        if rule.action == 'keep'
-          `cp '#{full_path}/#{file}' '#{@tvshow_folder}/#{rule.name}/#{dest}'`
-          # puts "cp '#{full_path}/#{file}' '#{@tvshow_folder}/#{rule.name}/#{dest}'"
-        elsif rule.action == 'unrar'
-          unrar = true
-          `unrar e -o+ "#{full_path}/#{file}" "#{full_path}/"`
-        end
-      end
-      return true, unrar, [{type:"success", file: file, rule: rule, dest: dest}]
-    else
-      return false, false, [{type:"error", file: file, rule: {}, dest: ''}]
-    end
-  end
-
-  def run_rules(real)
-    set_tvshow_folder()
+  def run_rules(test)
+    $test = test
+    set_settings()
     rules = Rules.all()
     result = []
     lines = `transmission-remote --list`
     lines.split("\n").each do |line|
-      Transfer.new(line)
-      id = line[0..3]
-      status = line[57..69]
-      name = line[70..-1]
-      if name && id && status
-        id.strip!()
-        status.strip!()
-        if status == 'Finished'
-          info = `transmission-remote -t #{id} --info`
-          info.split("\n").find_index do |info_line|
-            info_line =~ /Location: (.+)/
-          end
-          full_path = $1 + "/" + name
-          files = []
-          file_results = []
-          unrar = false
-          if is_dir = File.directory?(full_path)
-            Dir.entries(full_path).each do |file|
-              next if file == '.' || file == '..'
-              success, unrar, file_result = apply_rule(file, rules, real)
-              file_results += [file_result]
-              unless success
-                result += [{transfer: name, file_results: file_results}]
-                return result
-              end
-              # index = rules.find_index do |rule|
-              #   file =~ Regexp.new(rule.pattern, Regexp::IGNORECASE)
-              # end
-              # if index
-              #   rule = rules[index]
-              #   dest = ''
-              #   if rule['rename']
-              #     dest = renamed(rule.pattern, rule.rename, file)
-              #   end
-              #   if real
-              #     if rule.action == 'keep'
-              #       `cp '#{full_path}/#{file}' '#{@tvshow_folder}/#{rule.name}/#{dest}'`
-              #       # puts "cp '#{full_path}/#{file}' '#{@tvshow_folder}/#{rule.name}/#{dest}'"
-              #     elsif rule.action == 'unrar'
-              #       unrar = true
-              #       `unrar e -o+ "#{full_path}/#{file}" "#{full_path}/"`
-              #     end
-              #   end
-              #   file_results += [{type:"success", file: file, rule: rule, dest: dest}]
-              # else
-              #   file_results += [{type:"error", file: file, rule: {}, dest: ''}]
-              #   result += [{transfer: name, file_results: file_results}]
-              #   return result
-              # end
-            end
-            if real
-              unless unrar
-                `transmission-remote -t #{id} --remove`
-                `rm -rf #{full_path}`
-                # puts "rm -rf #{full_path}"
-              end
-            end
-          else
-            success, unrar, file_result = apply_rule(full_path, rules, real)
-            file_results += [file_result]
-            unless success
-              result += [{transfer: name, file_results: file_results}]
-              return result
-            end
-          end
-          result += [{transfer: name, file_results: file_results}]
-        end
+      transfer = Transfer.from(line)
+      if transfer
+        applied = transfer.apply(rules)
+        result += [transfer.result()]
+        return result if not applied
       end
     end
     return result
+
+    #   id = line[0..3]
+    #   status = line[57..69]
+    #   name = line[70..-1]
+    #   if name && id && status
+    #     id.strip!()
+    #     status.strip!()
+    #     if status == 'Finished'
+    #       info = `transmission-remote -t #{id} --info`
+    #       info.split("\n").find_index do |info_line|
+    #         info_line =~ /Location: (.+)/
+    #       end
+    #       full_path = $1 + "/" + name
+    #       files = []
+    #       file_results = []
+    #       unrar = false
+    #       if is_dir = File.directory?(full_path)
+    #         Dir.entries(full_path).each do |file|
+    #           next if file == '.' || file == '..'
+    #           success, unrar, file_result = apply_rule(file, rules, real)
+    #           file_results += [file_result]
+    #           unless success
+    #             result += [{transfer: name, file_results: file_results}]
+    #             return result
+    #           end
+    #           # index = rules.find_index do |rule|
+    #           #   file =~ Regexp.new(rule.pattern, Regexp::IGNORECASE)
+    #           # end
+    #           # if index
+    #           #   rule = rules[index]
+    #           #   dest = ''
+    #           #   if rule['rename']
+    #           #     dest = renamed(rule.pattern, rule.rename, file)
+    #           #   end
+    #           #   if real
+    #           #     if rule.action == 'keep'
+    #           #       `cp '#{full_path}/#{file}' '#{@tvshow_folder}/#{rule.name}/#{dest}'`
+    #           #       # puts "cp '#{full_path}/#{file}' '#{@tvshow_folder}/#{rule.name}/#{dest}'"
+    #           #     elsif rule.action == 'unrar'
+    #           #       unrar = true
+    #           #       `unrar e -o+ "#{full_path}/#{file}" "#{full_path}/"`
+    #           #     end
+    #           #   end
+    #           #   file_results += [{type:"success", file: file, rule: rule, dest: dest}]
+    #           # else
+    #           #   file_results += [{type:"error", file: file, rule: {}, dest: ''}]
+    #           #   result += [{transfer: name, file_results: file_results}]
+    #           #   return result
+    #           # end
+    #         end
+    #         if real
+    #           unless unrar
+    #             `transmission-remote -t #{id} --remove`
+    #             `rm -rf #{full_path}`
+    #             # puts "rm -rf #{full_path}"
+    #           end
+    #         end
+    #       else
+    #         success, unrar, file_result = apply_rule(full_path, rules, real)
+    #         file_results += [file_result]
+    #         unless success
+    #           result += [{transfer: name, file_results: file_results}]
+    #           return result
+    #         end
+    #       end
+    #       result += [{transfer: name, file_results: file_results}]
+    #     end
+    #   end
+    # end
+    # return result
   end
 
   get '/test_run' do
-    run_rules(false).to_json()
+    run_rules(true).to_json()
   end
 
   get '/run' do
-    run_rules(true).to_json()
+    run_rules(false).to_json()
   end
 
   def valid_rule(json)
@@ -313,7 +388,7 @@ class Nina < Sinatra::Application
       return true
     elsif action == 'unrar'
       return true
-    elsif action == 'keep'
+    elsif action == 'copy'
       return false unless ['tvshow', 'movie', 'porn'].include?(kind)
       return false unless name
       return false unless name.length > 0
@@ -365,14 +440,6 @@ class Nina < Sinatra::Application
     result.to_json()
   end
 
-  def app_settings()
-    x = Settings.get(1)
-    if not x
-      x = Settings.create(:tvshow_folder => '~/Downloads/tvshows')
-    end
-    x
-  end
-
   def set_trans_list()
     if not @trans
       lines = `transmission-remote --list`
@@ -407,9 +474,13 @@ class Nina < Sinatra::Application
     end
   end
 
-  def set_tvshow_folder()
-    if not @tvshow_folder
-      @tvshow_folder = app_settings()[:tvshow_folder]
+  def set_settings()
+    if not @app_settings
+      @app_settings = Settings.get(1)
+      if not @app_settings
+        @app_settings = Settings.create(:tvshow_folder => '~/Downloads/tvshows')
+      end
+      $tvshow_folder = @app_settings.tvshow_folder
     end
   end
 

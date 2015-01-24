@@ -69,3 +69,5 @@ table.ui.table ng-repeat="result in results" ng-show="show_result"
             i.fa.fa-arrow-right
           code
             | {{dest}}
+      .ui.negative.message ng-show="show_error"
+        | {{rule_error}}

@@ -87,6 +87,7 @@ ninaControllers.controller('HomeCtrl', ['$scope', '$http', '$compile', function 
   $('.menu .item').tab();
   $scope.actions = nina_actions();
   $scope.kinds = nina_kinds();
+  $scope.show_error = false;
 
   $scope.test_run = function() {
     $http.get("/test_run").success(function(data) {
@@ -98,6 +99,7 @@ ninaControllers.controller('HomeCtrl', ['$scope', '$http', '$compile', function 
     $http.get("/run").success(function(data) {
       $scope.results = data;
       $scope.show_result = true;
+      $scope.test_run();
     });
   };
   $scope.result_class = function(r) {
@@ -124,7 +126,7 @@ ninaControllers.controller('HomeCtrl', ['$scope', '$http', '$compile', function 
       $scope.rule = {pattern: "", action: "ignore", kind: "tvshow"};
     };
     $scope.example = r.file;
-    $scope.test_rule();
+    $scope.show_error = false;
 
     $('.ui.modal').modal('show');
   };
@@ -141,7 +143,13 @@ ninaControllers.controller('HomeCtrl', ['$scope', '$http', '$compile', function 
       url = "/add_rule";
     }
     $http.post(url, $scope.rule).success(function(data) {
-      $('.ui.modal').modal('hide');
+      if (data.error) {
+        $scope.rule_error = data.error;
+        $scope.show_error = true;
+      } else {
+        $('.ui.modal').modal('hide');
+        $scope.test_run();
+      }
     });
   };
   $scope.confirm = function() {

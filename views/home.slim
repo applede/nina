@@ -28,7 +28,13 @@ table.ui.table ng-repeat="result in results" ng-show="show_result"
           i.fa.fa-chevron-right
           .ui.compact.basic.button
             | {{file.dest}}
-.ui.primary.button ng-click="run()" Run
+
+.ui.negative.message ng-show="show_error"
+  | {{error_message}}
+
+.ui.primary.button ng-show="show_run" ng-click="run()" Run
+.ui.indeterminate.inline.text.loader ng-class="loading" Running
+
 .ui.modal
   i.close.icon
   .header Edit Rule # {{rule.id}}

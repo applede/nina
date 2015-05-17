@@ -113,20 +113,24 @@ def sh(*args)
   end
 end
 
-def regex_option(pattern)
+def regex(pattern)
   if pattern =~ /[A-Z]/
-    0
+    Regexp.new(pattern)
   else
-    Regexp::IGNORECASE
+    Regexp.new(pattern, Regexp::IGNORECASE)
   end
 end
 
 def renamed(pattern, rename, src)
-  if rename.include?('$1')
-    src =~ Regexp.new(pattern, regex_option(pattern))
-    eval '"' + rename + '"'
-  else
-    src.sub(Regexp.new(pattern, regex_option(pattern)), rename)
+  begin
+    if rename.include?('$1')
+      src =~ regex(pattern)
+      eval '"' + rename + '"'
+    else
+      src.sub(regex(pattern), rename)
+    end
+  rescue Exception => e
+    e.to_s
   end
 end
 
@@ -205,7 +209,7 @@ class Transfer
 
   def apply_to(rules, folder, file, second_try = false)
     index = rules.find_index do |rule|
-      file =~ Regexp.new(rule.pattern, regex_option(rule.pattern))
+      file =~ regex(rule.pattern)
     end
     if index
       r = :ok
@@ -216,7 +220,11 @@ class Transfer
         dest = renamed(rule.pattern, rule.rename, file)
       end
       if rule.action == 'copy'
-        sh("cp", path, File.join($tvshow_folder, rule.name, dest))
+        folder = File.join($tvshow_folder, rule.name)
+        unless File.directory?(folder)
+          sh("mkdir", "-p", folder)
+        end
+        sh("cp", path, File.join(folder, dest))
       elsif rule.action == 'unrar'
         if not second_try
           r = :retry
@@ -322,13 +330,16 @@ class Nina < Sinatra::Application
     set_settings()
     rules = Rules.all()
     result = []
-    lines = `transmission-remote --list`
+    lines = `transmission-remote --list 2>&1`
     lines.split("\n").each do |line|
       transfer = Transfer.from(line)
       if transfer
         applied = transfer.apply(rules)
         result += [transfer.result()]
         break if not applied
+      elsif line =~ /Couldn't connect to server/
+        result = {error:line}
+        break
       end
     end
     @running = false

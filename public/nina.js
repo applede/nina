@@ -87,19 +87,37 @@ ninaControllers.controller('HomeCtrl', ['$scope', '$http', '$compile', function 
   $('.menu .item').tab();
   $scope.actions = nina_actions();
   $scope.kinds = nina_kinds();
-  $scope.show_error = false;
+
+  reset();
+
+  function reset() {
+    $scope.loading = "disabled";
+    $scope.show_result = false;
+    $scope.show_error = false;
+  }
 
   $scope.test_run = function() {
     $http.get("/test_run").success(function(data) {
-      $scope.results = data;
+      $scope.show_run = false;
+      if (data.error) {
+        $scope.results = [];
+        $scope.error_message = data.error;
+        $scope.show_error = true;
+      } else {
+        $scope.results = data;
+        $scope.show_error = false;
+        if ($scope.results.length > 1) {
+          $scope.show_run = true;
+        }
+      }
       $scope.show_result = true;
     });
   };
   $scope.run = function() {
+    $scope.loading = "active";
     $http.get("/run").success(function(data) {
-      $scope.results = data;
-      $scope.show_result = true;
-      $scope.test_run();
+      // $scope.results = data;
+      reset();
     });
   };
   $scope.result_class = function(r) {
